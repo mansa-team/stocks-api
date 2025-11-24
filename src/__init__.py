@@ -1,7 +1,6 @@
 from imports import *
 
-from main.api import Service as API_Service
-from main.rag import Service as RAG_Service
+from main.service import Service as API_Service
 
 def mysql_connectiontest():
     mysql_engine = create_engine(f"mysql+pymysql://{Config.MYSQL['USER']}:{Config.MYSQL['PASSWORD']}@{Config.MYSQL['HOST']}/{Config.MYSQL['DATABASE']}")
@@ -23,19 +22,19 @@ def mysql_connectiontest():
         return False
     
 def initialize(module, config):
-    print("=" * 30)
-    print(f"Configuring {module}")
-    print("=" * 30)
+    print("=" * 60)
+    print(f"Configuring {module}\n")
 
     if module == "STOCKS_API":
         if config['HOST'] in LOCALHOST_ADDRESSES and mysql_connectiontest():
-            if config['API.ROUTE'] == 'TRUE':
-                pass
-                #API_Service.initialize(config['PORT'])
-                pass
-            if config['RAG.ROUTE'] == 'TRUE':
-                pass
-                #RAG_Service.initialize(config['PORT'])
+            API_Service.initialize(
+                "Mansa (Stocks API)",
+                int(config['PORT']),
+                enable_api=bool(config['API.ROUTE']),
+                enable_rag=bool(config['RAG.ROUTE']),
+            )
+        
+            time.sleep(2)
 
         #$ Stocks API connection test
         try:
@@ -44,16 +43,20 @@ def initialize(module, config):
             latency = (time.time() - start_time) * 1000
 
             if response.status_code == 200:
-                return print(f"Stocks API connected to http://{config['HOST']}:{config['PORT']}! ({latency:.2f}ms)")
-            else: return print(f"Stocks API returned status {response.status_code}")
+                print(f"Mansa (Stocks API) connected to http://{config['HOST']}:{config['PORT']}! ({latency:.2f}ms)")
+            else: print(f"Mansa (Stocks API) returned status {response.status_code}")
                                 
         except requests.exceptions.Timeout:
-            return print(f"Stocks API connection timeout (5s)")
+            print(f"Mansa (Stocks API) connection timeout (5s)")
         except requests.exceptions.ConnectionError:
-            return print(f"Cannot connect to Stocks API: {config['HOST']}:{config['PORT']}")
+            print(f"Cannot connect to Mansa (Stocks API) to http://{config['HOST']}:{config['PORT']}")
         except Exception as e:
-            print(f"Stocks API connection failed: {e}")
+            print(f"Mansa (Stocks API) connection failed: {e}")
+
+        print("=" * 60, "\n")
 
 if __name__ == "__main__":
     if Config.STOCKS_API['ENABLED'] == "TRUE":
         initialize("STOCKS_API", Config.STOCKS_API)
+
+        while True: time.sleep(1)
