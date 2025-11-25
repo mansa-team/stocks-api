@@ -1,4 +1,4 @@
-# Brazilian Stocks API
+# Brazilian Stocks Market API
 
 A full on API for more than 40 fundamentalist data in the Brazillian Stock Market, using an API Key system to deliver amazing performance and usuability for our users.
 
