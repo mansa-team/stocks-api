@@ -65,6 +65,10 @@ curl -H "X-API-Key: YOUR_KEY" "http://localhost:3200/api/historical?search=PETR4
 - `fields`: Comma-separated field names
 - `years`: Single year or range (e.g., `2020` or `2020,2024`)
 
+```
+DESPESAS, DIVIDENDOS, DY, LUCRO LIQUIDO, MARGEM BRUTA, MARGEM EBIT, MARGEM EBITDA, MARGEM LIQUIDA, RECEITA LIQUIDA
+```
+
 ### Fundamental Data
 Query current valuations and metrics by date range:
 ```bash
@@ -74,6 +78,10 @@ curl -H "X-API-Key: YOUR_KEY" "http://localhost:3200/api/fundamental?search=VALE
 - `search`: Ticker symbol or company name
 - `fields`: Comma-separated field names
 - `dates`: Single date or range (supports YYYY, YYYY-MM, or YYYY-MM-DD formats)
+
+```
+PRECO, VALOR DE MERCADO, LIQUIDEZ MEDIA DIARIA, P/L, P/VP, P/ATIVOS, P/EBIT, P/CAP. GIRO, P. AT CIR. LIQ., PSR, EV/EBIT, PEG Ratio, PRECO DE GRAHAM, PRECO DE BAZIN, MARG. LIQUIDA, MARGEM BRUTA, MARGEM EBIT, ROE, ROA, ROIC, VPA, LPA, DY, DY MEDIO 5 ANOS, CAGR DIVIDENDOS 5 ANOS, CAGR RECEITAS 5 ANOS, CAGR LUCROS 5 ANOS, RENT 1 DIA, RENT 5 DIAS, RENT 1 MES, RENT 6 MESES, RENT 1 ANO, RENT 5 ANOS, RENT MEDIA 5 ANOS, RENT TOTAL, PATRIMONIO / ATIVOS, PASSIVOS / ATIVOS, LIQ. CORRENTE, DIVIDA LIQUIDA / EBIT, DIV. LIQ. / PATRI., GIRO ATIVOS, NOME, TICKER, SETOR, SUBSETOR, SEGMENTO, SGR, TAG ALONG
+```
 
 ## TODO
 
