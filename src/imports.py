@@ -43,7 +43,6 @@ class Config:
         'ENABLED': os.getenv('STOCKSAPI_ENABLED'),
         'HOST': os.getenv('STOCKSAPI_HOST'),
         'PORT': os.getenv('STOCKSAPI_PORT'),
-        'API.ROUTE': os.getenv('STOCKSAPI_API.ROUTE'),
-        'RAG.ROUTE': os.getenv('STOCKSAPI_RAG.ROUTE'),
-        'RAG.KEY': os.getenv('STOCKSAPI_RAG.KEY'),
+        'KEY.SYSTEM': os.getenv('STOCKSAPI_KEY.SYSTEM'),
+        'KEY': os.getenv('STOCKSAPI_PRIVATE.KEY'),
     }

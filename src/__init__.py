@@ -30,8 +30,6 @@ def initialize(module, config):
             API_Service.initialize(
                 "Mansa (Stocks API)",
                 int(config['PORT']),
-                enable_api=bool(config['API.ROUTE']),
-                enable_rag=bool(config['RAG.ROUTE']),
             )
         
             time.sleep(2)
