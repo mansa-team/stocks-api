@@ -40,7 +40,7 @@ class Service:
         
         @self.app.get("/")
         async def root():
-            return "Mansa (Stocks API)"
+            return {"message": "Mansa (Stocks API)"}
     
         if self.enable_api:
             api.setupRoutes(self.app)

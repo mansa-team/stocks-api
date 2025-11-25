@@ -17,7 +17,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy import types
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends, Security, status
+from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse
 
 load_dotenv()
@@ -44,4 +45,5 @@ class Config:
         'PORT': os.getenv('STOCKSAPI_PORT'),
         'API.ROUTE': os.getenv('STOCKSAPI_API.ROUTE'),
         'RAG.ROUTE': os.getenv('STOCKSAPI_RAG.ROUTE'),
+        'RAG.KEY': os.getenv('STOCKSAPI_RAG.KEY'),
     }
