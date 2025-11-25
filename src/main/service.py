@@ -3,6 +3,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from imports import *
+from functools import lru_cache
 
 APIKey_Header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -21,12 +22,23 @@ async def verifyAPIKey(APIKey: str = Depends(APIKey_Header)):
 
 class Service:
     instances = {}
+    _db_engine = None
+    _columns_cache = None
     
     def __init__(self, service_name: str, port: int):
         self.service_name = service_name
         self.port = int(port)
         self.app = FastAPI(title=service_name, version="1.0.0")
+        self._initEngine()
         self.setupRoutes()
+    
+    def _initEngine(self):
+        """Initialize database engine once"""
+        if Service._db_engine is None:
+            Service._db_engine = create_engine(
+                f"mysql+pymysql://{Config.MYSQL['USER']}:{Config.MYSQL['PASSWORD']}@{Config.MYSQL['HOST']}/{Config.MYSQL['DATABASE']}",
+                poolclass=None, echo=False
+            )
     
     def setupRoutes(self):
         @self.app.get("/health")
@@ -38,108 +50,184 @@ class Service:
             return {"message": "Mansa (Stocks API)"}
         
         @self.app.get("/api/key")
-        async def APIKeyTest(api_key: str = Depends(verifyAPIKey)):
+        async def api_key_test(api_key: str = Depends(verifyAPIKey)):
             return {"message": "API", "secured": True}
         
         @self.app.get("/api/historical")
-        async def getHistorical(search: str = Query(...), fields: str = Query(...), years: str = Query(...), api_key: str = Depends(verifyAPIKey)):
+        async def get_historical(search: str = Query(None), fields: str = Query(None), years: str = Query(None), api_key: str = Depends(verifyAPIKey)):
             return await self.queryHistorical(search, fields, years)
         
         @self.app.get("/api/fundamental")
-        async def getFundamental(search: str = Query(...), fields: str = Query(...), dates: str = Query(...), api_key: str = Depends(verifyAPIKey)):
+        async def get_fundamental(search: str = Query(None), fields: str = Query(None), dates: str = Query(None), api_key: str = Depends(verifyAPIKey)):
             return await self.queryFundamental(search, fields, dates)
     
-    def parseDateRange(self, date_str: str, is_single: bool = True) -> tuple:
+    def getAvailableColumns(self) -> list:
+        """Fetch all available columns with caching"""
+        if Service._columns_cache is not None:
+            return Service._columns_cache
+        
+        try:
+            with Service._db_engine.connect() as connection:
+                result = connection.execute(text("SHOW COLUMNS FROM b3_stocks"))
+                Service._columns_cache = [row[0] for row in result.fetchall()]
+                return Service._columns_cache
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error fetching database columns: {str(e)}")
+    
+    def parseYearInput(self, years: str) -> tuple:
+        """Parse year input and return (start_year, end_year)"""
+        if not years:
+            return None, None
+        year_list = [int(y.strip()) for y in years.split(",")]
+        if len(year_list) == 1:
+            return year_list[0], year_list[0]
+        elif len(year_list) == 2:
+            return year_list[0], year_list[1]
+        raise HTTPException(status_code=400, detail="Years format: YEAR or START_YEAR,END_YEAR")
+    
+    def parseDateRange(self, date_str: str) -> tuple:
         """Parse date string and return (start_date, end_date)"""
-        if len(date_str) == 4:  # Year only
+        if len(date_str) == 4:
             return f"{date_str}-01-01", f"{date_str}-12-31"
-        elif len(date_str) == 7:  # Year-Month
+        elif len(date_str) == 7:
             year, month = int(date_str[:4]), int(date_str[5:7])
             last_day = pd.Timestamp(year=year, month=month, day=1).days_in_month
             return f"{date_str}-01", f"{date_str}-{last_day:02d}"
         return date_str, date_str
     
-    def buildQuery(self, search: str, fields: list, date_start: str, date_end: str, query_type: str) -> tuple:
-        """Build SQL query based on type (fundamental or historical)"""
-        cols = ["`TICKER`", "`NOME`"]
+    def categorizeColumns(self, columns: list) -> tuple:
+        """Categorize columns into historical and fundamental"""
+        historical_fields = {}
+        historical_cols = set()
         
-        if query_type == "fundamental":
-            cols.insert(2, "`TIME`")
-            cols.extend([f"`{field}`" for field in fields])
-        else:
-            cols.extend([f"`{field} {year}`" for field in fields for year in range(int(date_start), int(date_end) + 1)])
+        for col in columns:
+            parts = col.rsplit(" ", 1)
+            if len(parts) == 2 and parts[1].isdigit():
+                year = int(parts[1])
+                if 2000 <= year <= 2100:
+                    field_name = parts[0]
+                    historical_fields.setdefault(field_name, []).append(year)
+                    historical_cols.add(col)
         
-        where_clause = "(UPPER(`TICKER`) = UPPER(:search) OR UPPER(`NOME`) LIKE CONCAT('%', UPPER(:search), '%'))"
+        temporal_cols = {"TICKER", "NOME", "TIME"}
+        fundamental_cols = sorted([col for col in columns if col not in temporal_cols and col not in historical_cols])
         
-        if query_type == "fundamental":
-            where_clause += " AND DATE(`TIME`) BETWEEN DATE(:date_start) AND DATE(:date_end)"
-        
-        query = text(f"SELECT {', '.join(cols)} FROM b3_stocks WHERE {where_clause} ORDER BY `TIME` DESC LIMIT 1000")
-        
-        return query, {"search": search, "date_start": date_start, "date_end": date_end}
+        return historical_fields, fundamental_cols
     
-    async def queryHistorical(self, search: str, fields: str, years: str):
+    def buildQuery(self, cols: list, where_clause: str, order_by: str = "") -> str:
+        """Build SQL query"""
+        order = f" ORDER BY {order_by}" if order_by else ""
+        return f"SELECT {', '.join(cols)} FROM b3_stocks WHERE {where_clause}{order}"
+    
+    def executeQuery(self, query: str, params: dict) -> pd.DataFrame:
+        """Execute query using shared engine"""
+        with Service._db_engine.connect() as connection:
+            result = connection.execute(query, params)
+            return pd.DataFrame(result.fetchall(), columns=result.keys())
+    
+    async def queryHistorical(self, search: str = None, fields: str = None, years: str = None):
         try:
-            field_list = [f.strip() for f in fields.split(",")]
-            year_list = [int(y.strip()) for y in years.split(",")]
+            available_columns = self.getAvailableColumns()
+            historical_fields, _ = self.categorizeColumns(available_columns)
             
-            if len(year_list) == 1:
-                year_start = year_end = year_list[0]
-            elif len(year_list) == 2:
-                year_start, year_end = year_list
-            else:
-                raise HTTPException(status_code=400, detail="Years format: YEAR or START_YEAR,END_YEAR")
+            if not historical_fields:
+                raise HTTPException(status_code=400, detail="No historical data available")
             
-            query, params = self.buildQuery(search, field_list, str(year_start), str(year_end), "historical")
-            df = self.executeQuery(query, params)
+            field_list_available = sorted(historical_fields.keys())
+            field_list = field_list_available if not fields else [f.strip() for f in fields.split(",") if f.strip() in field_list_available]
+            
+            if not field_list:
+                raise HTTPException(status_code=400, detail=f"No valid fields. Available: {field_list_available}")
+            
+            available_years = sorted(set(year for field in field_list for year in historical_fields[field]))
+            year_start, year_end = self.parseYearInput(years) if years else (available_years[0], available_years[-1])
+            
+            if year_start not in available_years or year_end not in available_years or year_start > year_end:
+                raise HTTPException(status_code=400, detail=f"Invalid years. Available: {available_years}")
+            
+            cols = ["`TICKER`", "`NOME`"] + [f"`{field} {year}`" for field in field_list for year in range(year_start, year_end + 1) if f"{field} {year}" in available_columns]
+            
+            if len(cols) == 2:
+                raise HTTPException(status_code=400, detail="No valid columns found")
+            
+            where_clause = "(UPPER(`TICKER`) = UPPER(:search) OR UPPER(`NOME`) LIKE CONCAT('%', UPPER(:search), '%'))" if search else "1=1"
+            params = {"search": search} if search else {}
+            
+            df = self.executeQuery(text(self.buildQuery(cols, where_clause, "`TICKER` ASC")), params)
             
             if df.empty:
-                raise HTTPException(status_code=404, detail=f"No data found for: {search}")
+                raise HTTPException(status_code=404, detail="No data found")
             
-            return {"search": search, "fields": field_list, "years": [year_start, year_end], "type": "historical", "data": json.loads(df.to_json(orient="records"))}
-        
+            return {
+                "search": search or "all",
+                "fields": sorted(field_list),
+                "years": [year_start, year_end],
+                "type": "historical",
+                "count": len(df),
+                "data": json.loads(df.to_json(orient="records"))
+            }
         except HTTPException:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching historical data: {str(e)}")
     
-    async def queryFundamental(self, search: str, fields: str, dates: str):
+    async def queryFundamental(self, search: str = None, fields: str = None, dates: str = None):
         try:
-            field_list = [f.strip() for f in fields.split(",")]
-            date_list = [d.strip() for d in dates.split(",")]
+            available_columns = self.getAvailableColumns()
+            _, fundamental_cols = self.categorizeColumns(available_columns)
             
-            if len(date_list) == 1:
-                actual_start, actual_end = self.parseDateRange(date_list[0], is_single=True)
-                original_date = date_list[0]
-            elif len(date_list) == 2:
-                actual_start, actual_end = date_list[0], date_list[1]
-                original_date = date_list[0]
+            if not fundamental_cols:
+                raise HTTPException(status_code=400, detail="No fundamental data available")
+            
+            field_list = fundamental_cols if not fields else [f.strip() for f in fields.split(",") if f.strip() in fundamental_cols]
+            
+            if not field_list:
+                raise HTTPException(status_code=400, detail=f"No valid fields. Available: {fundamental_cols}")
+            
+            cols = ["`TICKER`", "`NOME`", "`TIME`"] + [f"`{field}`" for field in field_list]
+            
+            if dates:
+                date_list = [d.strip() for d in dates.split(",")]
+                if len(date_list) == 1:
+                    actual_start, actual_end = self.parseDateRange(date_list[0])
+                    original_date = date_list[0]
+                elif len(date_list) == 2:
+                    actual_start, actual_end = date_list[0], date_list[1]
+                    original_date = f"{date_list[0]} to {date_list[1]}"
+                else:
+                    raise HTTPException(status_code=400, detail="Dates format: DATE or START_DATE,END_DATE")
+                
+                where_clause = f"DATE(`TIME`) BETWEEN DATE(:date_start) AND DATE(:date_end)"
+                params = {"date_start": actual_start, "date_end": actual_end}
             else:
-                raise HTTPException(status_code=400, detail="Dates format: DATE or START_DATE,END_DATE")
+                where_clause = "1=1"
+                params = {}
+                original_date = "all"
             
-            query, params = self.buildQuery(search, field_list, actual_start, actual_end, "fundamental")
-            params["date_start"], params["date_end"] = actual_start, actual_end
+            if search:
+                where_clause = f"(UPPER(`TICKER`) = UPPER(:search) OR UPPER(`NOME`) LIKE CONCAT('%', UPPER(:search), '%')) AND {where_clause}"
+                params["search"] = search
             
-            df = self.executeQuery(query, params)
+            df = self.executeQuery(text(self.buildQuery(cols, where_clause, "`TICKER` ASC, `TIME` DESC")), params)
             
             if df.empty:
-                raise HTTPException(status_code=404, detail=f"No data found for: {search}")
+                raise HTTPException(status_code=404, detail="No data found")
             
             if 'TIME' in df.columns:
                 df['TIME'] = pd.to_datetime(df['TIME']).astype(str)
             
-            return {"search": search, "fields": field_list, "dates": [original_date, date_list[1] if len(date_list) == 2 else original_date], "type": "fundamental", "data": json.loads(df.to_json(orient="records"))}
-        
+            return {
+                "search": search or "all",
+                "fields": sorted(field_list),
+                "dates": original_date,
+                "type": "fundamental",
+                "count": len(df),
+                "data": json.loads(df.to_json(orient="records"))
+            }
         except HTTPException:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching fundamental data: {str(e)}")
-    
-    def executeQuery(self, query: str, params: dict) -> pd.DataFrame:
-        engine = create_engine(f"mysql+pymysql://{Config.MYSQL['USER']}:{Config.MYSQL['PASSWORD']}@{Config.MYSQL['HOST']}/{Config.MYSQL['DATABASE']}")
-        with engine.connect() as connection:
-            result = connection.execute(query, params)
-            return pd.DataFrame(result.fetchall(), columns=result.keys())
     
     def run(self):
         uvicorn.run(self.app, host="0.0.0.0", port=self.port, log_level="critical")

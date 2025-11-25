@@ -1,25 +1,22 @@
 import os
 import sys
-import math
 import json
 import time
-import requests
 import threading
 import logging
 
+from datetime import datetime
 from dotenv import load_dotenv
 
+import requests
 import pandas as pd
 import numpy as np
 
-import pymysql
 from sqlalchemy import create_engine, text
-from sqlalchemy import types
+from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi.security import APIKeyHeader
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, Depends, Security, status
-from fastapi.security import APIKeyHeader
-from fastapi.responses import JSONResponse
 
 load_dotenv()
 """
