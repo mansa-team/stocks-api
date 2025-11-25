@@ -43,9 +43,9 @@ Built for commercial use and to the [Mansa](https://github.com/mansa-team) proje
 
 4. Run the Python Server
     ```bash
-        python src/__init__.py
+    python src/__init__.py
     ```
-    
+
 ## API Endpoints
 
 ### Standard API Routes (`STOCKSAPI_API.ROUTE`)
