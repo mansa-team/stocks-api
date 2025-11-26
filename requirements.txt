@@ -1,0 +1,7 @@
+fastap i==0.121.3
+uvicorn==0.38.0
+sqlalchemy==2.0.44
+pandas==2.3.3
+numpy==2.3.5
+python-dotenv==1.0.0
+requests==2.32.5
