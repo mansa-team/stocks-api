@@ -104,7 +104,7 @@ class Service:
             parts = col.rsplit(" ", 1)
             if len(parts) == 2 and parts[1].isdigit():
                 year = int(parts[1])
-                if 2000 <= year <= 2100:
+                if 1900 <= year <= 2100:
                     field_name = parts[0]
                     historical_fields.setdefault(field_name, []).append(year)
                     historical_cols.add(col)
