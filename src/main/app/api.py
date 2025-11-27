@@ -85,6 +85,14 @@ def executeQuery(engine, query: str, params: dict) -> pd.DataFrame:
         result = connection.execute(query, params)
         return pd.DataFrame(result.fetchall(), columns=result.keys())
 
+def normalizeColumns(data: pd.DataFrame, order: list) -> pd.DataFrame:
+    """Normalize column order in DataFrame"""
+    columns = list(data.columns)
+    orderedColumns = [col for col in order if col in columns]
+    remainingColumns = sorted([col for col in columns if col not in orderedColumns])
+    newOrder = orderedColumns + remainingColumns
+    return data[newOrder]
+
 #
 #$ API Queries
 #
@@ -179,9 +187,17 @@ async def queryFundamental(engine, search: str = None, fields: str = None, dates
         if 'TIME' in df.columns:
             df['TIME'] = pd.to_datetime(df['TIME']).astype(str)
         
+        column_order = ['TIME', 'NOME', 'TICKER', 'SETOR', 'SUBSETOR', 'SEGMENTO', 'ALTMAN Z-SCORE', 'SGR', 'LIQUIDEZ MEDIA DIARIA', 'PRECO', 'PRECO DE BAZIN', 'PRECO DE GRAHAM', 'TAG ALONG', 'RENT 12 MESES', 'RENT MEDIA 5 ANOS', 'DY', 'DY MEDIO 5 ANOS', 'P/L', 'P/VP', 'P/ATIVOS', 'MARGEM BRUTA', 'MARGEM EBIT', 'MARG. LIQUIDA', 'EBIT', 'P/EBIT', 'EV/EBIT', 'DIVIDA LIQUIDA / EBIT', 'DIV. LIQ. / PATRI.', 'PSR', 'P/CAP. GIRO', 'P. AT CIR. LIQ.', 'LIQ. CORRENTE', 'LUCRO LIQUIDO MEDIO 5 ANOS', 'ROE', 'ROA', 'ROIC', 'PATRIMONIO / ATIVOS', 'PASSIVOS / ATIVOS', 'GIRO ATIVOS', 'CAGR DIVIDENDOS 5 ANOS', 'CAGR RECEITAS 5 ANOS', 'CAGR LUCROS 5 ANOS', 'VPA', 'LPA', 'PEG Ratio', 'VALOR DE MERCADO']
+
+        ordered_field_list = [col for col in column_order if col in field_list]
+        remaining_fields = [col for col in field_list if col not in column_order]
+        field_list = ordered_field_list + sorted(remaining_fields)
+
+        df = normalizeColumns(df, column_order)
+        
         return {
             "search": search or "all",
-            "fields": sorted(field_list),
+            "fields": field_list,
             "dates": original_date,
             "type": "fundamental",
             "count": len(df),
