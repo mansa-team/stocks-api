@@ -15,19 +15,13 @@ import numpy as np
 from sqlalchemy import create_engine, text
 from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.security import APIKeyHeader
+from fastapi.middleware.cors import CORSMiddleware
 
 import uvicorn
 
 load_dotenv()
-"""
-Load the .env files to determine if the specified module is initialized when the project is initialized, making maintance and redundancy easier for the developer.
-
-For example:
-    You can set the host ip address of some specific module to be ran by other developer, making the management and computational distribution easier across the project. With each developer running a part of the project and making developing each module easier than having a monolithic repository.
-"""
 
 LOCALHOST_ADDRESSES = ['localhost', '127.0.0.1', '0.0.0.0', 'None', None]
-
 class Config:
     MYSQL = {
         'USER': os.getenv('MYSQL_USER'),
