@@ -107,9 +107,9 @@ All successful responses follow this structure:
 ```
 
 ## TODO
-
-- [ ] **MySQL-Linked Key System**: Migrate from environment-based API keys to a database-driven key management system with per-user authentication, key rotation, and usage tracking
-- [ ] **Rate Limiting**: Implement request rate limiting based on API key tier to prevent abuse and ensure fair resource allocation across clients
+- [ ] Figure out how to make an SQL Injection prevention system, should be easy
+- [ ] Dedicated user-based key system linked to the main Mansa's structure
+- [ ] Rate Limiting
 
 ## License
 Mansa Team's MODIFIED GPL 3.0 License. See LICENSE for details.

@@ -1,6 +1,6 @@
 from imports import *
 
-from main.service import Service as API_Service
+from main.service import Service as STOCKSAPI_Service
 
 def mysql_connectiontest():
     mysql_engine = create_engine(f"mysql+pymysql://{Config.MYSQL['USER']}:{Config.MYSQL['PASSWORD']}@{Config.MYSQL['HOST']}/{Config.MYSQL['DATABASE']}")
@@ -30,14 +30,16 @@ def initialize(module, config):
     #
     if module == "STOCKS_API":
         if config['HOST'] in LOCALHOST_ADDRESSES and mysql_connectiontest():
-            API_Service.initialize(
+            STOCKSAPI_Service.initialize(
                 "Mansa (Stocks API)",
                 int(config['PORT']),
             )
         
             time.sleep(2)
 
+    #
     #$ Connection Test
+    #
     if module == "STOCKS_API":
         try:
             start_time = time.time()
@@ -50,8 +52,6 @@ def initialize(module, config):
                                 
         except requests.exceptions.Timeout:
             print(f"Mansa ({module}) connection timeout (5s)")
-        except requests.exceptions.ConnectionError:
-            print(f"Cannot connect to Mansa ({module}) to http://{config['HOST']}:{config['PORT']}")
         except Exception as e:
             print(f"Mansa ({module}) connection failed: {e}")
 
