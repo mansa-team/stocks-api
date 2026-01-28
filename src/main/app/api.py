@@ -4,17 +4,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from imports import *
 
-from main.app.query import *
-
+from main.app.query import queryFundamental, queryHistorical
+from main.app.util import verifyAPIKey
+from main.app.cache import startCacheScheduler
 class API:
     def __init__(self, service_name: str, port: int):
         self.service_name = service_name
         self.port = int(port)
         self.app = FastAPI(title=service_name, version="1.0.0")
-        self._db_engine = create_engine(
-            f"mysql+pymysql://{Config.MYSQL['USER']}:{Config.MYSQL['PASSWORD']}@{Config.MYSQL['HOST']}/{Config.MYSQL['DATABASE']}",
-            poolclass=None, echo=False
-        )
 
         self.app.add_middleware(
             CORSMiddleware,
@@ -25,6 +22,7 @@ class API:
         )
 
         self.setupRoutes()
+        startCacheScheduler(dbEngine)
     
     def setupRoutes(self):
         @self.app.get("/health")
@@ -41,11 +39,11 @@ class API:
         
         @self.app.get("/api/historical")
         async def getHistorical(search: str = Query(None), fields: str = Query(None), dates: str = Query(None), api_key: str = Depends(verifyAPIKey)):
-            return await queryHistorical(self._db_engine, search, fields, dates)
+            return await queryHistorical(search, fields, dates)
         
         @self.app.get("/api/fundamental")
         async def getFundamental(search: str = Query(None), fields: str = Query(None), dates: str = Query(None), api_key: str = Depends(verifyAPIKey)):
-            return await queryFundamental(self._db_engine, search, fields, dates)
-    
+            return await queryFundamental(search, fields, dates)
+        
     def run(self):
         uvicorn.run(self.app, host="0.0.0.0", port=self.port, log_level="critical")

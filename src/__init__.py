@@ -3,12 +3,10 @@ from imports import *
 from main.service import Service as STOCKSAPI_Service
 
 def mysql_connectiontest():
-    mysql_engine = create_engine(f"mysql+pymysql://{Config.MYSQL['USER']}:{Config.MYSQL['PASSWORD']}@{Config.MYSQL['HOST']}/{Config.MYSQL['DATABASE']}")
-    
     try:
         start_time = time.time()
         
-        with mysql_engine.connect() as connection:
+        with dbEngine.connect() as connection:
             result = connection.execute(text("SELECT 1"))
             result.close()
         
@@ -34,12 +32,12 @@ def initialize(module, config):
                 "Mansa (Stocks API)",
                 int(config['PORT']),
             )
-        
-            time.sleep(2)
 
     #
     #$ Connection Test
     #
+    time.sleep(2)
+
     if module == "STOCKS_API":
         try:
             start_time = time.time()

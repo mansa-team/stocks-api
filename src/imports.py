@@ -12,7 +12,7 @@ import requests
 import pandas as pd
 import numpy as np
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, QueuePool
 from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,3 +37,13 @@ class Config:
         'KEY.SYSTEM': os.getenv('STOCKSAPI_KEY.SYSTEM'),
         'KEY': os.getenv('STOCKSAPI_PRIVATE.KEY'),
     }
+
+dbEngine = create_engine(
+    f"mysql+pymysql://{Config.MYSQL['USER']}:{Config.MYSQL['PASSWORD']}@{Config.MYSQL['HOST']}/{Config.MYSQL['DATABASE']}",
+    poolclass=QueuePool,
+    pool_size=20,
+    max_overflow=40,
+    pool_pre_ping=True,
+    echo=False,
+    connect_args={'charset': 'utf8mb4'}
+)
