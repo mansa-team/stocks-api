@@ -39,7 +39,7 @@ Built for the [Mansa](https://github.com/mansa-team) project and designed for in
 
 4. Run the server:
     ```bash
-    python src/__init__.py
+    python __init__.py
     ```
 
 ## API Endpoints
