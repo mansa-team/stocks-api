@@ -24,15 +24,13 @@ async def queryHistorical(search: str = None, fields: str = None, dates: str = N
         
         available_years = sorted(set(year for field in field_list for year in historical_fields[field]))
         year_start, year_end = parseYearInput(dates) if dates else (available_years[0], available_years[-1])
-        
-        # Reverse range to show latest years first in columns
+
         cols = ["TICKER", "NOME"] + [f"{field} {year}" for field in field_list for year in range(year_end, year_start - 1, -1) if f"{field} {year}" in available_columns_set]
         
         if search:
             search_terms = [s.strip().upper() for s in search.split(",")]
             df = df[df['TICKER'].str.upper().isin(search_terms)]
-        
-        # Sort by TIME descending to ensure latest records are kept after drop_duplicates
+
         if 'TIME' in df.columns:
             df = df.sort_values(by='TIME', ascending=False)
         

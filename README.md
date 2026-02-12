@@ -107,7 +107,7 @@ All successful responses follow this structure:
 ```
 
 ## TODO
-- [ ] Dedicated user-based key system linked to the main Mansa's structure
+- [ ] Dedicated key system linked to the main Mansa's structure
 - [ ] Quota System
 
 ## License
