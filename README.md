@@ -4,6 +4,9 @@ A comprehensive API for accessing 40+ fundamental data points from the Brazilian
 
 Built for the [Mansa](https://github.com/mansa-team) project and designed for integration with Retrieval-Augmented Generation (RAG) systems.
 
+> [!IMPORTANT]
+> New changes made to this project are now made in the [Mansa's Server](https://github.com/mansa-team/server) repository, consult it for more info.
+
 ## Installation
 1. Clone the repository:
     ```bash
